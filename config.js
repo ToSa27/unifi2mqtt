@@ -1,4 +1,5 @@
 module.exports = require('yargs')
+    .env('UNIFI2MQTT')
     .usage('Usage: $0 [options]')
     .describe('a', 'unifi hostname or address')
     .describe('p', 'unifi port')
