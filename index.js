@@ -227,7 +227,7 @@ function getClients() {
                     retainedClients[client.essid].splice(index, 1);
                 }
             }
-            macClient[client.hostname] = client.mac;
+            macClient[client.name] = client.mac;
         });
         Object.keys(retainedClients).forEach(essid => {
             retainedClients[essid].forEach(hostname => {
