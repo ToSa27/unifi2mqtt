@@ -22,6 +22,7 @@ const idWifi = {};
 const dataWifi = {};
 const idDevice = {};
 const dataDevice = {};
+const macClient = {};
 
 log.info('mqtt trying to connect', config.url);
 
@@ -139,6 +140,16 @@ mqtt.on('message', (topic, payload) => {
         } else {
             log.warn('unknown wireless network', parts[3]);
         }
+    } else if (parts[1] === 'set' && parts[2] === 'client' && parts[4] === 'blocked') {
+        // Block/unblock client
+        if (idWifi[parts[3]]) {
+            log.debug('unifi > cmd/stamgr', {cmd: Boolean(parsePayload(payload)) ? 'block-sta' : 'unblock-sta', mac: idWifi[parts[3]]});
+            unifi.post('cmd/stamgr', {cmd: Boolean(parsePayload(payload)) ? 'block-sta' : 'unblock-sta', mac: idWifi[parts[3]]}).then(() => {
+                //setTimeout(getClients, 5000);
+            });
+        } else {
+            log.warn('unknown client', parts[3]);
+        }
     } else if (parts[1] === 'status' && parts[2] === 'wifi' && parts[4] === 'client') {
         // Retained client status
         clearTimeout(retainedClientsTimeout);
@@ -216,6 +227,7 @@ function getClients() {
                     retainedClients[client.essid].splice(index, 1);
                 }
             }
+            macClient[client.hostname] = client.mac;
         });
         Object.keys(retainedClients).forEach(essid => {
             retainedClients[essid].forEach(hostname => {
