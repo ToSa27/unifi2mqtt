@@ -46,8 +46,8 @@ mqtt.on('connect', () => {
     log.info('mqtt subscribe', config.name + '/set/#');
     mqtt.subscribe(config.name + '/set/#');
 
-    log.info('mqtt subscribe', config.name + '/status/wifi/+/client/+');
-    mqtt.subscribe(config.name + '/status/wifi/+/client/+');
+    log.info('mqtt subscribe', config.name + '/status/client/+');
+    mqtt.subscribe(config.name + '/status/client/+');
     retainedClientsTimeout = setTimeout(clientsReceived, 2000);
 });
 
@@ -171,8 +171,8 @@ mqtt.on('message', (topic, payload) => {
 
 function clientsReceived() {
     log.info('retained clients received');
-    log.info('mqtt unsubscribe', config.name + '/status/wifi/+/client/+');
-    mqtt.unsubscribe(config.name + '/status/wifi/+/client/+');
+    log.info('mqtt unsubscribe', config.name + '/status/client/+');
+    mqtt.unsubscribe(config.name + '/status/client/+');
     mqttConnected = true;
 }
 
