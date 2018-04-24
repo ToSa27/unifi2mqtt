@@ -17,7 +17,7 @@ let mqttConnected;
 let unifiConnected = false;
 let retainedClientsTimeout;
 let numClients = {};
-const retainedClients = {};
+const retainedClients = [];
 const idWifi = {};
 const dataWifi = {};
 const idDevice = {};
@@ -142,30 +142,30 @@ mqtt.on('message', (topic, payload) => {
         }
     } else if (parts[1] === 'set' && parts[2] === 'client' && parts[4] === 'blocked') {
         // Block/unblock client
-        if (idWifi[parts[3]]) {
-            log.debug('unifi > cmd/stamgr', {cmd: Boolean(parsePayload(payload)) ? 'block-sta' : 'unblock-sta', mac: idWifi[parts[3]]});
-            unifi.post('cmd/stamgr', {cmd: Boolean(parsePayload(payload)) ? 'block-sta' : 'unblock-sta', mac: idWifi[parts[3]]}).then(() => {
-                //setTimeout(getClients, 5000);
+        if (macClient[parts[3]]) {
+            log.debug('unifi > cmd/stamgr', {cmd: Boolean(parsePayload(payload)) ? 'block-sta' : 'unblock-sta', mac: macClient[parts[3]]});
+            unifi.post('cmd/stamgr', {cmd: Boolean(parsePayload(payload)) ? 'block-sta' : 'unblock-sta', mac: macClient[parts[3]]}).then(() => {
+                setTimeout(getClients, 5000);
             });
         } else {
             log.warn('unknown client', parts[3]);
         }
-    } else if (parts[1] === 'status' && parts[2] === 'wifi' && parts[4] === 'client') {
+    } else if (parts[1] === 'status' && parts[2] === 'client' && parts[4] === 'connected') {
         // Retained client status
         clearTimeout(retainedClientsTimeout);
         retainedClientsTimeout = setTimeout(clientsReceived, 2000);
         try {
             const val = JSON.parse(payload).val;
-            if (val) {
-                if (retainedClients[parts[3]]) {
-                    retainedClients[parts[3]].push(parts[5]);
-                } else {
-                    retainedClients[parts[3]] = [parts[5]];
-                }
-            }
+            if (val)
+                if (!retainedClients.contains(parts[3]))
+                    retainedClients.push(parts[3]);
         } catch (err) {
             log.error(topic, payload, err);
         }
+    } else if (parts[1] === 'status' && parts[2] === 'client' && parts[4] === 'mac') {
+        // Retained client mac
+        if (!macClient[parts[3]])
+            macClient[parts[3]] = payload;
     }
 });
 
@@ -207,6 +207,7 @@ function getDevices() {
 }
 
 function getClients() {
+    log.debug('getclients', mqttConnected);
     if (!mqttConnected) {
         setTimeout(getClients, 1000);
         return;
@@ -215,24 +216,31 @@ function getClients() {
     log.info('unifi > stat/sta');
     unifi.get('stat/sta').then(clients => {
         clients.data.forEach(client => {
-            if (numClients[client.essid]) {
-                numClients[client.essid] += 1;
+            const id = client.name || client.hostname || client.mac;
+            const ssid = client.essid || 'wired';
+            if (numClients[ssid]) {
+                numClients[ssid] += 1;
             } else {
-                numClients[client.essid] = 1;
+                numClients[ssid] = 1;
             }
-            mqttPub([config.name, 'status', 'wifi', client.essid, 'client', client.hostname].join('/'), {val: true, mac: client.mac, ts: (new Date()).getTime()}, {retain: true});
-            if (retainedClients[client.essid]) {
-                const index = retainedClients[client.essid].indexOf(client.hostname);
-                if (index > -1) {
-                    retainedClients[client.essid].splice(index, 1);
-                }
-            }
-            macClient[client.name] = client.mac;
+            mqttPub([config.name, 'status', 'client', id, 'connected'].join('/'), {val: true, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'mac'].join('/'), {val: client.mac, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'ip'].join('/'), {val: client.ip, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'guest'].join('/'), {val: client.is_guest, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'wired'].join('/'), {val: client.is_wired, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'ssid'].join('/'), {val: client.essid, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'network'].join('/'), {val: client.network, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'authorized'].join('/'), {val: client.authorized, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'blocked'].join('/'), {val: client.authorized, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'hostname'].join('/'), {val: client.hostname, ts: client.last_seen}, {retain: true});
+            mqttPub([config.name, 'status', 'client', id, 'vlan'].join('/'), {val: client.vlan, ts: client.last_seen}, {retain: true});
+            const index = retainedClients.indexOf(id);
+            if (index > -1)
+                retainedClients.splice(index, 1);
+            macClient[id] = client.mac;
         });
-        Object.keys(retainedClients).forEach(essid => {
-            retainedClients[essid].forEach(hostname => {
-                mqttPub([config.name, 'status', 'wifi', essid, 'client', hostname].join('/'), {val: false, ts: (new Date()).getTime()}, {retain: true});
-            });
+        retainedClients.forEach(id => {
+            mqttPub([config.name, 'status', 'client', id, 'connected'].join('/'), {val: false, ts: (new Date()).getTime()}, {retain: true});
         });
         wifiInfoPub();
     });
@@ -252,6 +260,12 @@ unifi.on('ctrl.error', err => {
 
 unifi.on('*.disconnected', data => {
     log.debug('unifi <', data);
+    macClient.forEach((id) => {
+        if (macClient[id] === data.user)
+            mqttPub([config.name, 'status', 'client', id, 'event', 'disconnected'].join('/'), {val: data.user, ts: data.time});
+    });
+    getClients();
+/*
     if (numClients[data.ssid]) {
         numClients[data.ssid] -= 1;
     } else {
@@ -260,10 +274,17 @@ unifi.on('*.disconnected', data => {
     wifiInfoPub();
     mqttPub([config.name, 'status', 'wifi', data.ssid, 'event', 'disconnected'].join('/'), {val: data.hostname, mac: data.user, ts: data.time});
     mqttPub([config.name, 'status', 'wifi', data.ssid, 'client', data.hostname].join('/'), {val: false, mac: data.user, ts: data.time}, {retain: true});
+*/
 });
 
 unifi.on('*.connected', data => {
     log.debug('unifi <', data);
+    macClient.forEach((id) => {
+        if (macClient[id] === data.user)
+            mqttPub([config.name, 'status', 'client', id, 'event', 'connected'].join('/'), {val: data.user, ts: data.time});
+    });
+    getClients();
+/*
     if (numClients[data.ssid]) {
         numClients[data.ssid] += 1;
     } else {
@@ -272,6 +293,7 @@ unifi.on('*.connected', data => {
     wifiInfoPub();
     mqttPub([config.name, 'status', 'wifi', data.ssid, 'event', 'connected'].join('/'), {val: data.hostname, mac: data.user, ts: data.time});
     mqttPub([config.name, 'status', 'wifi', data.ssid, 'client', data.hostname].join('/'), {val: true, mac: data.user, ts: data.time}, {retain: true});
+*/
 });
 
 unifi.on('*.roam', data => {
@@ -288,6 +310,8 @@ unifi.on('ap.detect_rogue_ap', data => {
 
 unifi.on('ad.update_available', data => {
     log.debug('unifi <', data);
+    mqttPub([config.name, 'event', 'update_available'].join('/'), {val: true, ts: data.time});
+    // ToDo : detect once installed and switch back to false?
 });
 
 function wifiInfoPub() {
