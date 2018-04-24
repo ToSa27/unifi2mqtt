@@ -206,7 +206,7 @@ function getDevices() {
     });
 }
 
-function getClients() {
+function getClients(mac = null) {
     log.debug('getclients', mqttConnected);
     if (!mqttConnected) {
         setTimeout(getClients, 1000);
@@ -217,6 +217,8 @@ function getClients() {
     unifi.get('stat/sta').then(clients => {
         clients.data.forEach(client => {
             const id = client.name || client.hostname || client.mac;
+            if (mac && (mac != client.mac))
+                continue;
             const ssid = client.essid || 'wired';
             if (numClients[ssid]) {
                 numClients[ssid] += 1;
@@ -264,7 +266,7 @@ unifi.on('*.disconnected', data => {
         if (macClient[id] === data.user)
             mqttPub([config.name, 'status', 'client', id, 'event', 'disconnected'].join('/'), {val: data.user, ts: data.time});
     });
-    getClients();
+    getClients(data.user);
 /*
     if (numClients[data.ssid]) {
         numClients[data.ssid] -= 1;
@@ -283,7 +285,7 @@ unifi.on('*.connected', data => {
         if (macClient[id] === data.user)
             mqttPub([config.name, 'status', 'client', id, 'event', 'connected'].join('/'), {val: data.user, ts: data.time});
     });
-    getClients();
+    getClients(data.user);
 /*
     if (numClients[data.ssid]) {
         numClients[data.ssid] += 1;
