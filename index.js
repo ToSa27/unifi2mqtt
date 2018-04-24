@@ -217,29 +217,29 @@ function getClients(mac = null) {
     unifi.get('stat/sta').then(clients => {
         clients.data.forEach(client => {
             const id = client.name || client.hostname || client.mac;
-            if (mac && (mac != client.mac))
-                continue;
-            const ssid = client.essid || 'wired';
-            if (numClients[ssid]) {
-                numClients[ssid] += 1;
-            } else {
-                numClients[ssid] = 1;
+            if (!mac || (mac === client.mac)) {
+                const ssid = client.essid || 'wired';
+                if (numClients[ssid]) {
+                    numClients[ssid] += 1;
+                } else {
+                    numClients[ssid] = 1;
+                }
+                mqttPub([config.name, 'status', 'client', id, 'connected'].join('/'), {val: true, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'mac'].join('/'), {val: client.mac, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'ip'].join('/'), {val: client.ip, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'guest'].join('/'), {val: client.is_guest, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'wired'].join('/'), {val: client.is_wired, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'ssid'].join('/'), {val: client.essid, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'network'].join('/'), {val: client.network, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'authorized'].join('/'), {val: client.authorized, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'blocked'].join('/'), {val: client.authorized, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'hostname'].join('/'), {val: client.hostname, ts: client.last_seen}, {retain: true});
+                mqttPub([config.name, 'status', 'client', id, 'vlan'].join('/'), {val: client.vlan, ts: client.last_seen}, {retain: true});
+                const index = retainedClients.indexOf(id);
+                if (index > -1)
+                    retainedClients.splice(index, 1);
+                macClient[id] = client.mac;
             }
-            mqttPub([config.name, 'status', 'client', id, 'connected'].join('/'), {val: true, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'mac'].join('/'), {val: client.mac, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'ip'].join('/'), {val: client.ip, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'guest'].join('/'), {val: client.is_guest, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'wired'].join('/'), {val: client.is_wired, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'ssid'].join('/'), {val: client.essid, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'network'].join('/'), {val: client.network, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'authorized'].join('/'), {val: client.authorized, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'blocked'].join('/'), {val: client.authorized, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'hostname'].join('/'), {val: client.hostname, ts: client.last_seen}, {retain: true});
-            mqttPub([config.name, 'status', 'client', id, 'vlan'].join('/'), {val: client.vlan, ts: client.last_seen}, {retain: true});
-            const index = retainedClients.indexOf(id);
-            if (index > -1)
-                retainedClients.splice(index, 1);
-            macClient[id] = client.mac;
         });
         retainedClients.forEach(id => {
             mqttPub([config.name, 'status', 'client', id, 'connected'].join('/'), {val: false, ts: (new Date()).getTime()}, {retain: true});
