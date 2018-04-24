@@ -260,7 +260,7 @@ unifi.on('ctrl.error', err => {
 
 unifi.on('*.disconnected', data => {
     log.debug('unifi <', data);
-    macClient.forEach((id) => {
+    Object.keys(macClient).forEach((id) => {
         if (macClient[id] === data.user)
             mqttPub([config.name, 'status', 'client', id, 'event', 'disconnected'].join('/'), {val: data.user, ts: data.time});
     });
@@ -279,7 +279,7 @@ unifi.on('*.disconnected', data => {
 
 unifi.on('*.connected', data => {
     log.debug('unifi <', data);
-    macClient.forEach((id) => {
+    Object.keys(macClient).forEach((id) => {
         if (macClient[id] === data.user)
             mqttPub([config.name, 'status', 'client', id, 'event', 'connected'].join('/'), {val: data.user, ts: data.time});
     });
