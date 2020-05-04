@@ -11,7 +11,9 @@
     "node": ">=6.0.0"
   },
   "scripts": {
-    "test": "camo-purge ; xo"
+    "test": "camo-purge ; xo",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "repository": {
     "type": "git",
@@ -34,7 +36,8 @@
     "mqtt": "^2.15.1",
     "ubnt-unifi": "^1.0.0",
     "yalm": "^4.1.0",
-    "yargs": "^11.0.0"
+    "yargs": "^11.0.0",
+    "snyk": "^1.317.0"
   },
   "devDependencies": {
     "camo-purge": "latest",
@@ -42,5 +45,6 @@
   },
   "xo": {
     "space": 4
-  }
+  },
+  "snyk": true
 }
