@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/hobbyquaker/unifi2mqtt",
   "dependencies": {
-    "mqtt": "^2.15.1",
+    "mqtt": "^4.2.7",
     "ubnt-unifi": "^1.0.0",
     "yalm": "^4.1.0",
     "yargs": "^11.0.0"
